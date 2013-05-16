@@ -2,6 +2,7 @@ import simulation
 import parameters
 import fitness
 import numpy as np
+import random
 
 class Evolution(object):
 
@@ -26,6 +27,11 @@ class Evolution(object):
         self.generation_cnt = 0 # count the generations 
         self.rnd_seed = rnd_seed # seed to initialize parameter values
         self.n_survivors = int(round(survivors * self.n_individuals))
+        np.random.seed(self.rnd_seed)
+        random.seed(self.rnd_seed + 1234)
+        self.mutation_factor = 0.05 # max percentage of change for each parameter for surviving individuals
+        assert (self.mutation_factor > .0 and self.mutation_factor < 1.0), 'ERROR: mutation_factor out of range: %f (must be > 0 and < 1.)' % (self.mutation_factor)
+        self.param_ranges_set = False # before starting the Evolutionary algorithm, set_parameter_ranges must be called
 
 
     def run_evolution(self):
@@ -36,6 +42,7 @@ class Evolution(object):
 
         type(params_to_tune) = list
         """
+        assert (self.param_ranges_set), 'ERROR: Call set_parameter_ranges(some_dictionary) before calling run_evolution in order to set the parameters to tune and their ranges!'
         self.initialize_individuals()
         self.run_generation()
 
@@ -49,7 +56,6 @@ class Evolution(object):
         """
 
         if init_params_for_individuals == None:
-            np.random.seed(self.rnd_seed)
             self.params_for_individuals = [ {} for i in xrange(self.n_individuals)] # each individual has its own parameter dictionary
             for i in xrange(self.n_individuals):
                 for j, p in enumerate(self.parameter_ranges.keys()):
@@ -69,7 +75,7 @@ class Evolution(object):
         """
         self.parameter_ranges = dict_of_parameter_ranges
         self.params_to_tune = dict_of_parameter_ranges.keys()
-
+        self.param_ranges_set = True
 
 
     def run_generation(self):
@@ -81,36 +87,85 @@ class Evolution(object):
 
         for gen_cnt in xrange(self.n_generations):
 
-            self.sim.run_sim(self.params_for_individuals)
+            for ind in xrange(self.n_individuals):
+                self.sim.run_sim(self.params_for_individuals[ind], ind)
 
-            # Get the results for all individuals in the generation
-            generation_results = np.zeros(self.n_individuals)
+            # Get the results and fitness values for all individuals in the generation
+            fitness_values = np.zeros(self.n_individuals)
             print 'Results for generation', gen_cnt
             for j in xrange(self.n_individuals):
                 result = self.sim.get_results_for_individual(j)
-                generation_results[j] = self.fitness.get_fitness(result)
-                print '%d %.6e' % (j, generation_results[j])
-            sorted_idx = np.argsort(generation_results)
-            to_be_reinitiated = sorted_idx[:self.n_survivors]
-            print generation_results[sorted_idx]
-            print 'The following parameter sets survive this:'
+                fitness_values[j] = self.fitness.get_fitness(result)
+                print '%d %.6e' % (j, fitness_values[j])
+            sorted_idx = np.argsort(fitness_values)
+            n_new = self.n_individuals - self.n_survivors
+            to_be_reinitiated = sorted_idx[:n_new]
+            survivor_idx = sorted_idx[n_new:]
+            print 'To be reinitiated:', to_be_reinitiated, fitness_values[to_be_reinitiated]
+            print 'Survivors:', survivor_idx, fitness_values[survivor_idx]
+
+            # Re-initiate the ones that 'did not survive'
+            for new_ind_ in xrange(n_new):
+                # Determine the parents for this one individual
+                parent_0 = random.choice(survivor_idx)
+                parent_1 = random.choice(survivor_idx)
+                while (parent_0 == parent_1):
+                    parent_1 = random.choice(survivor_idx)
+#                    print 'while', parent_0, parent_1, random.choice(survivor_idx)
+#                print 'New individual %d gets parents:' % new_ind_, parent_0, parent_1
+#                print 'parents params 0', self.params_for_individuals[parent_0]
+#                print 'parents params 1', self.params_for_individuals[parent_1]
+                new_params = self.combine_parents_params(parent_0, parent_1)
+                self.params_for_individuals[new_ind_] = new_params
 
             # Mutate those that survived
             for survivor in sorted_idx[self.n_survivors:]:
-                print survivor, self.params_for_individuals[survivor]
                 self.mutate(survivor)
+#                print 'survivor, params', survivor, self.params_for_individuals[survivor]
 
-            n_new = to_be_reinitiated.size
-            # Re-initiate the ones that 'did not survive'
-            for new_ind_ in xrange(n_new)
-                # Determine the parents for this one individual
+
 #                parents = np.random.randint #... 
 
 
 
+    def combine_parents_params(self, parent_0, parent_1, method='random'):
+        """Generate a new parameter set from the two existing ones
+
+        Keyword arguments:
+        parent_0, parent_1 -- integer values indicating the parent indices
+        method -- if 'random' for each individual parameter a random value between parent_0 and parent_1 is chosen
+                  if 'mean' the mean value between the parent_0's and parent_1's value is chosen.
+        """
+
+        p0 = self.params_for_individuals[parent_0]
+        p1 = self.params_for_individuals[parent_1]
+        new_params = {}
+        for key in p0.keys():
+            min_val = min(p0[key], p1[key])
+            max_val = max(p0[key], p1[key])
+            if method == 'mean':
+                new_value = .5 * (max_val - min_val) + min_val
+            else:# method == 'random':
+                new_value = (max_val - min_val) * np.random.rand() + min_val
+            new_params[key] = new_value
+        return new_params
+
                     
-      def mutate(self, individual): 
-          pass
+    def mutate(self, individual): 
+        """Modify the parameters of a 'surviving individual'. 
+        
+        Keyword arguments:
+        individual -- integer giving the index of in the parameter list
+        """
+        old_params = self.params_for_individuals[individual]
+        for key in old_params.keys():
+            change = 2 * self.mutation_factor * np.random.rand() + (1. - self.mutation_factor)
+            new_value = change * old_params[key] 
+            global_min_val = self.parameter_ranges[key][0]
+            global_max_val = self.parameter_ranges[key][1]
+            # map into the 'allowed' range
+            new_value = max(global_min_val, min(global_max_val, new_value))
+            self.params_for_individuals[individual][key] = new_value
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ class Simulation(object):
         self.params = params
         pass
 
-    def run_sim(self, params):
+    def run_sim(self, params, *args):
         """Run one simulation instance (representing one individual)
         
         Keyword arguments:
