@@ -1,8 +1,10 @@
+import os
 
 class Parameters(object):
 
     def __init__(self):
         self.params = {}
+        self.params['folder_names'] = []
 
     def get(self):
         """Returns the stored parameters"""
@@ -26,3 +28,15 @@ class Parameters(object):
         for p in list_of_params_to_init:
         """
         pass
+
+
+    def create_folders(self):
+        """
+        Must be called from 'outside' this class before the simulation
+        """
+        for f in self.params['folder_names']:
+            if not os.path.exists(f):
+                print 'Creating folder:\t%s' % f
+                os.system("mkdir %s" % (f))
+
+

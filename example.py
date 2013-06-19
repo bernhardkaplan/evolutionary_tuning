@@ -12,11 +12,12 @@ class my_sim(simulation.Simulation):
         """
         super(my_sim, self).__init__(params)
 
-    def run_sim(self, params, my_number):
+    def run_sim(self, params, ind_nr):
         """Implement an example 'simulation'
 
         Keyword arguments:
         params -- parameter dictionary
+        ind_nr -- (int) individual number
         """
         a = params['a']# = 1
         b = params['b']# = -1
@@ -26,8 +27,9 @@ class my_sim(simulation.Simulation):
         f = params['f']# = -4
         x = self.params['x']
         f_x = x * np.exp(np.sin(a * x + b)) * np.cos(c * x + d) * e + f
-        output_fn = self.params['output_fn_base'] + '%d.dat' % (my_number)
+        output_fn = self.params['output_fn_base'] + '%d.dat' % (ind_nr)
         np.savetxt(output_fn, np.array((x, f_x)))
+#        np.savetxt(output_fn, np.array((x, f_x)).transpose())
 
 
     def get_results_for_individual(self, individual):
@@ -59,6 +61,9 @@ class my_fitness(fitness.Fitness):
         x = input_data
         f_x = x * np.exp(np.sin(a * x + b)) * np.cos(c * x + d) * e + f
         self.target_function = f_x
+        output_fn = self.params['folder_name'] +  'target_function.dat'
+        print 'Saving target function to:', output_fn
+        np.savetxt(output_fn, np.array((x, f_x)))
 
 
     def get_fitness(self, result):
@@ -86,7 +91,15 @@ class my_parameters(parameters.Parameters):
         dx = (x_stop - x_start) / n_x
         x = np.arange(x_start, x_stop, dx)
         self.params['x'] = x
-        self.params['output_fn_base'] = 'Results/fx_'
+        self.params['folder_name'] = 'Results/'
+        self.params['folder_names'] = [self.params['folder_name']]
+        self.params['output_fn_base'] = '%sfx_' % self.params['folder_name']
+        self.params['fitness_vs_time_fn'] = '%sfitness_vs_generation.dat' % (self.params['folder_name'])
+        self.params['fitness_for_generation_fn_base'] = '%sfitness_gen_' % (self.params['folder_name'])
+
+        self.create_folders()
+
+
 
 
 # the parameter storage class
@@ -105,7 +118,8 @@ fitness.set_fitness_function(params['x'])
 
 
 # create the main class that acts as framework
-Evo = run_evolution.Evolution(sim, params, fitness, n_generations=100) 
+Evo = run_evolution.Evolution(sim, params, fitness, n_generations=200, n_individuals=50, survivors=0.6) 
+#def __init__(self, sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.6, rnd_seed=0):
 
 parameter_ranges = { 'a' : (-10, 10.), \
                      'b' : (-10, 10.), \

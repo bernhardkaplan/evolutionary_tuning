@@ -32,7 +32,23 @@ class Evolution(object):
         self.mutation_factor = 0.05 # max percentage of change for each parameter for surviving individuals
         assert (self.mutation_factor > .0 and self.mutation_factor < 1.0), 'ERROR: mutation_factor out of range: %f (must be > 0 and < 1.)' % (self.mutation_factor)
         self.param_ranges_set = False # before starting the Evolutionary algorithm, set_parameter_ranges must be called
+        self.check_mandatory_params()
 
+    def check_mandatory_params(self):
+        list_of_mandatory_params = ['fitness_vs_time_fn', 'fitness_for_generation_fn_base']
+
+        list_of_missing_params = []
+        for p in list_of_mandatory_params:
+            try:
+                a = self.params[p]
+            except:
+                list_of_missing_params.append(p)
+
+        if len(list_of_missing_params) > 0:
+            print 'ERROR! The following parameters have not been set in the parameters class'
+            print list_of_missing_params
+            print '\nPlease give them a value in your parameter class derived from class my_parameters(parameters.Parameters):'
+            exit(1)
 
     def run_evolution(self):
         """
@@ -85,24 +101,30 @@ class Evolution(object):
 
         """
 
+
+        fitness_values = np.zeros((self.n_generations, self.n_individuals))
         for gen_cnt in xrange(self.n_generations):
 
             for ind in xrange(self.n_individuals):
                 self.sim.run_sim(self.params_for_individuals[ind], ind)
 
             # Get the results and fitness values for all individuals in the generation
-            fitness_values = np.zeros(self.n_individuals)
             print 'Results for generation', gen_cnt
             for j in xrange(self.n_individuals):
                 result = self.sim.get_results_for_individual(j)
-                fitness_values[j] = self.fitness.get_fitness(result)
-                print '%d %.6e' % (j, fitness_values[j])
-            sorted_idx = np.argsort(fitness_values)
+                fitness_values[gen_cnt, j] = self.fitness.get_fitness(result)
+                print '%d %.6e' % (j, fitness_values[gen_cnt, j])
+            sorted_idx = np.argsort(fitness_values[gen_cnt, :])
             n_new = self.n_individuals - self.n_survivors
             to_be_reinitiated = sorted_idx[:n_new]
             survivor_idx = sorted_idx[n_new:]
-            print 'To be reinitiated:', to_be_reinitiated, fitness_values[to_be_reinitiated]
-            print 'Survivors:', survivor_idx, fitness_values[survivor_idx]
+
+            # for interemediate control, save the fitness values for this generation
+            output_fn = self.params['fitness_for_generation_fn_base'] + '%d.dat' % (gen_cnt)
+            np.savetxt(output_fn, fitness_values[gen_cnt, :])
+
+#            print 'To be reinitiated:', to_be_reinitiated, fitness_values[gen_cnt, to_be_reinitiated]
+#            print 'Survivors:', survivor_idx, fitness_values[gen_cnt, survivor_idx]
 
             # Re-initiate the ones that 'did not survive'
             for new_ind_ in xrange(n_new):
@@ -124,6 +146,9 @@ class Evolution(object):
 #                print 'survivor, params', survivor, self.params_for_individuals[survivor]
 
 
+        output_fn = self.params['fitness_vs_time_fn']
+        print 'Saving fitness values to:', output_fn
+        np.savetxt(output_fn, fitness_values.transpose())
 #                parents = np.random.randint #... 
 
 
