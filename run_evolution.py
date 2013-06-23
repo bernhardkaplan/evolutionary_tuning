@@ -3,10 +3,11 @@ import parameters
 import fitness
 import numpy as np
 import random
+import json
 
 class Evolution(object):
 
-    def __init__(self, sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.6, rnd_seed=0):
+    def __init__(self, sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.6, mutation_factor=0.05, rnd_seed=0):
         """Initialize the evolutionary_tuning framework
 
         Keyword arguments:
@@ -17,6 +18,7 @@ class Evolution(object):
         n_individuals -- Total number of individuals simulated in one generation (default 10)
         survivors -- Fraction of individuals that survive in each generation 
                     (default 0.6 meaning that the 40% of the individuals with the lowest fitness will be re-created in each generation)
+        mutation_factor -- max percentage of change for each parameter for surviving individuals
         """
 
         self.sim = sim
@@ -29,13 +31,14 @@ class Evolution(object):
         self.n_survivors = int(round(survivors * self.n_individuals))
         np.random.seed(self.rnd_seed)
         random.seed(self.rnd_seed + 1234)
-        self.mutation_factor = 0.05 # max percentage of change for each parameter for surviving individuals
+        self.mutation_factor = mutation_factor 
         assert (self.mutation_factor > .0 and self.mutation_factor < 1.0), 'ERROR: mutation_factor out of range: %f (must be > 0 and < 1.)' % (self.mutation_factor)
         self.param_ranges_set = False # before starting the Evolutionary algorithm, set_parameter_ranges must be called
         self.check_mandatory_params()
 
     def check_mandatory_params(self):
-        list_of_mandatory_params = ['fitness_vs_time_fn', 'fitness_for_generation_fn_base']
+        list_of_mandatory_params = ['fitness_vs_time_fn', 'parameters_for_individuals_fn_base']
+#        list_of_mandatory_params = ['fitness_vs_time_fn', 'fitness_for_generation_fn_base']
 
         list_of_missing_params = []
         for p in list_of_mandatory_params:
@@ -60,7 +63,7 @@ class Evolution(object):
         """
         assert (self.param_ranges_set), 'ERROR: Call set_parameter_ranges(some_dictionary) before calling run_evolution in order to set the parameters to tune and their ranges!'
         self.initialize_individuals()
-        self.run_generation()
+        self.run_all_generations()
 
 
 
@@ -94,7 +97,7 @@ class Evolution(object):
         self.param_ranges_set = True
 
 
-    def run_generation(self):
+    def run_all_generations(self):
         """
         run the simulation --> Simulation
         evaluate results --> Fitness 
@@ -102,32 +105,35 @@ class Evolution(object):
         """
 
 
+
         fitness_values = np.zeros((self.n_generations, self.n_individuals))
         for gen_cnt in xrange(self.n_generations):
 
+
             for ind in xrange(self.n_individuals):
-                self.sim.run_sim(self.params_for_individuals[ind], ind)
+                self.sim.run_sim(self.params_for_individuals[ind], ind, gen_cnt)
 
             # Get the results and fitness values for all individuals in the generation
-            print 'Results for generation', gen_cnt
+            print 'Evolution.gen_cnt:', gen_cnt
             for j in xrange(self.n_individuals):
-                result = self.sim.get_results_for_individual(j)
+                result = self.sim.get_results_for_individual(j, gen_cnt)
                 fitness_values[gen_cnt, j] = self.fitness.get_fitness(result)
-                print '%d %.6e' % (j, fitness_values[gen_cnt, j])
+#                print '%d %.6e' % (j, fitness_values[gen_cnt, j])
             sorted_idx = np.argsort(fitness_values[gen_cnt, :])
             n_new = self.n_individuals - self.n_survivors
             to_be_reinitiated = sorted_idx[:n_new]
             survivor_idx = sorted_idx[n_new:]
 
             # for interemediate control, save the fitness values for this generation
-            output_fn = self.params['fitness_for_generation_fn_base'] + '%d.dat' % (gen_cnt)
-            np.savetxt(output_fn, fitness_values[gen_cnt, :])
+
+#            output_fn = self.params['fitness_for_generation_fn_base'] + '%d.dat' % (gen_cnt)
+#            np.savetxt(output_fn, fitness_values[gen_cnt, :])
 
 #            print 'To be reinitiated:', to_be_reinitiated, fitness_values[gen_cnt, to_be_reinitiated]
 #            print 'Survivors:', survivor_idx, fitness_values[gen_cnt, survivor_idx]
 
             # Re-initiate the ones that 'did not survive'
-            for new_ind_ in xrange(n_new):
+            for i_, new_ind_ in enumerate(to_be_reinitiated):
                 # Determine the parents for this one individual
                 parent_0 = random.choice(survivor_idx)
                 parent_1 = random.choice(survivor_idx)
@@ -135,20 +141,30 @@ class Evolution(object):
                     parent_1 = random.choice(survivor_idx)
 #                    print 'while', parent_0, parent_1, random.choice(survivor_idx)
 #                print 'New individual %d gets parents:' % new_ind_, parent_0, parent_1
-#                print 'parents params 0', self.params_for_individuals[parent_0]
-#                print 'parents params 1', self.params_for_individuals[parent_1]
-                new_params = self.combine_parents_params(parent_0, parent_1)
+#                print 'parents params ', parent_0, self.params_for_individuals[parent_0]
+#                print 'parents params 1', parent_1, self.params_for_individuals[parent_1]
+                new_params = self.combine_parents_params(parent_0, parent_1, method='random')
                 self.params_for_individuals[new_ind_] = new_params
+#                print 'After combination:', self.params_for_individuals[new_ind_]
 
             # Mutate those that survived
             for survivor in sorted_idx[self.n_survivors:]:
                 self.mutate(survivor)
 #                print 'survivor, params', survivor, self.params_for_individuals[survivor]
 
+            # Logging of parameters
+            log_fn = self.params['parameters_for_individuals_fn_base'] + '%d.prm' % gen_cnt
+            log_file = file(log_fn, 'w')
+            print 'Writing parameters for generation %d to %s' % (gen_cnt, log_fn)
+            json.dump(self.params_for_individuals, log_file)
+            log_file.flush()
+
 
         output_fn = self.params['fitness_vs_time_fn']
         print 'Saving fitness values to:', output_fn
         np.savetxt(output_fn, fitness_values.transpose())
+
+        print 'Saving parameters for individuals to:', output_fn
 #                parents = np.random.randint #... 
 
 

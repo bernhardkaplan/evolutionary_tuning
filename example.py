@@ -11,13 +11,15 @@ class my_sim(simulation.Simulation):
         Initializes the x-axis of the function to fit to
         """
         super(my_sim, self).__init__(params)
+        self.results = {}
 
-    def run_sim(self, params, ind_nr):
+    def run_sim(self, params, ind_nr, gen_nr, save_to_disk=False):
         """Implement an example 'simulation'
 
         Keyword arguments:
         params -- parameter dictionary
         ind_nr -- (int) individual number
+        gen_nr -- (int) generation number
         """
         a = params['a']# = 1
         b = params['b']# = -1
@@ -27,15 +29,33 @@ class my_sim(simulation.Simulation):
         f = params['f']# = -4
         x = self.params['x']
         f_x = x * np.exp(np.sin(a * x + b)) * np.cos(c * x + d) * e + f
-        output_fn = self.params['output_fn_base'] + '%d.dat' % (ind_nr)
-        np.savetxt(output_fn, np.array((x, f_x)))
+
+        self.save_results_to_disk = save_to_disk  
+        if self.save_results_to_disk:
+            output_fn = self.params['output_fn_base'] + '%d_%d.dat' % (gen_nr, ind_nr)
+            np.savetxt(output_fn, np.array((x, f_x)))
+        else:
+            # only store the results of each individuum of the current generation
+            self.results[ind_nr] = f_x
+
 #        np.savetxt(output_fn, np.array((x, f_x)).transpose())
 
 
-    def get_results_for_individual(self, individual):
+    def get_results_for_individual(self, ind_nr, gen_nr):
+        """Return the data produced by a certain individuum in a certain generation
 
-        output_fn = params['output_fn_base'] + '%d.dat'  % (individual)
-        d = np.loadtxt(output_fn)
+        The output_fn that is loaded must be the same as in run_sim.
+
+        Keyword arguments:
+        ind_nr -- (int) individual number
+        gen_nr -- (int) generation number
+        """
+
+        if self.save_results_to_disk:
+            output_fn = params['output_fn_base'] + '%d_%d.dat'  % (gen_nr, ind_nr)
+            d = np.loadtxt(output_fn)
+        else:
+            d = self.results[ind_nr]
         return d
 
 
@@ -96,7 +116,7 @@ class my_parameters(parameters.Parameters):
         self.params['output_fn_base'] = '%sfx_' % self.params['folder_name']
         self.params['fitness_vs_time_fn'] = '%sfitness_vs_generation.dat' % (self.params['folder_name'])
         self.params['fitness_for_generation_fn_base'] = '%sfitness_gen_' % (self.params['folder_name'])
-
+        self.params['parameters_for_individuals_fn_base'] = '%sparams_gen' % (self.params['folder_name'])
         self.create_folders()
 
 
@@ -118,7 +138,7 @@ fitness.set_fitness_function(params['x'])
 
 
 # create the main class that acts as framework
-Evo = run_evolution.Evolution(sim, params, fitness, n_generations=200, n_individuals=50, survivors=0.6) 
+Evo = run_evolution.Evolution(sim, params, fitness, n_generations=2000, n_individuals=20, survivors=0.6, mutation_factor=0.05) 
 #def __init__(self, sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.6, rnd_seed=0):
 
 parameter_ranges = { 'a' : (-10, 10.), \

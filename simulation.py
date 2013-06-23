@@ -13,7 +13,7 @@ class Simulation(object):
         """
         pass
 
-    def get_results_for_individual(self, individual):
+    def get_results_for_individual(self, individual, gen_nr):
         """Return the results for the individual
         
         # e.g. fn = params['results_fn_base' + str(individual) + '.dat'
