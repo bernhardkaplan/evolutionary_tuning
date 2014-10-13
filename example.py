@@ -71,7 +71,7 @@ class my_fitness(fitness.Fitness):
         super(my_fitness, self).__init__(params)
 
 
-    def set_fitness_function(self, input_data):
+    def set_fitness_function(self, input_data, save_target_function=True):
         """Set the target function.
 
         Keyword arguments:
@@ -86,9 +86,10 @@ class my_fitness(fitness.Fitness):
         x = input_data
         f_x = x * np.exp(np.sin(a * x + b)) * np.cos(c * x + d) * e + f
         self.target_function = f_x
-        output_fn = self.params['folder_name'] +  'target_function.dat'
-        print 'Saving target function to:', output_fn
-        np.savetxt(output_fn, np.array((x, f_x)))
+        if save_target_function:
+            output_fn = self.params['folder_name'] +  'target_function.dat'
+            print 'Saving target function to:', output_fn
+            np.savetxt(output_fn, np.array((x, f_x)))
 
 
     def get_fitness(self, result):
@@ -103,6 +104,7 @@ class my_fitness(fitness.Fitness):
         return fitness
 
 
+
 class my_parameters(parameters.Parameters):
 
     def __init__(self):
@@ -112,50 +114,74 @@ class my_parameters(parameters.Parameters):
         # set the input data on which the simulation class and the fitness should compute
         x_start = 0
         x_stop = 20.
-        n_x = 1000.
+        n_x = 2000.
         dx = (x_stop - x_start) / n_x
         x = np.arange(x_start, x_stop, dx)
         self.params['x'] = x
-        self.params['folder_name'] = 'Results/'
-        self.params['folder_names'] = [self.params['folder_name']]
+        self.create_folders()
+
+    def set_filenames(self, folder_name=None):
+        self.set_folder_names(folder_name)
         self.params['output_fn_base'] = '%sfx_' % self.params['folder_name']
         self.params['fitness_vs_time_fn'] = '%sfitness_vs_generation.dat' % (self.params['folder_name'])
         self.params['fitness_for_generation_fn_base'] = '%sfitness_gen_' % (self.params['folder_name'])
         self.params['parameters_for_individuals_fn_base'] = '%sparams_gen' % (self.params['folder_name'])
-        self.create_folders()
+
+    def set_folder_names(self, folder_name=None):
+        if folder_name == None:
+            self.params['folder_name'] = 'Results/'
+        else:
+            self.params['folder_name'] = folder_name
+        self.params['folder_names'] = [self.params['folder_name']]
 
 
 
 
-# the parameter storage class
-my_params = my_parameters()
-params = my_params.params
-print 'params[\'x\']', params['x']
+if __name__ == '__main__':
 
-# the simulation you want to have tuned
-sim = my_sim(params)
-print 'my_sim.params', sim.params
+    n_generations=500
+    n_individuals=200
+    survivors=0.50
+    mutation_factor=1.0
 
-fitness = my_fitness(params)
+    # the parameter storage class
 
-#sim.params['x'] = x
-fitness.set_fitness_function(params['x'])
+    my_params = my_parameters()
+    folder_name = 'Results_nGen%d_nInd%d_surv%.2f_mutation%.2f/' % (n_generations, n_individuals, survivors, mutation_factor)
+    my_params.set_filenames(folder_name)
+    my_params.create_folders()
+    params = my_params.params
+    print 'my_params.params', my_params.params
+#    print 'params[\'x\']', params['x']
+
+    # the simulation you want to have tuned
+    sim = my_sim(params)
+    print 'my_sim.params', sim.params
+
+    fitness = my_fitness(params)
+
+    #sim.params['x'] = x
+    fitness.set_fitness_function(params['x'])
 
 
-# create the main class that acts as framework
-Evo = run_evolution.Evolution(sim, params, fitness, n_generations=2000, n_individuals=20, survivors=0.6, mutation_factor=0.05) 
-#def __init__(self, sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.6, rnd_seed=0):
+    # create the main class that acts as framework
+    Evo = run_evolution.Evolution(sim, params, fitness, n_generations=n_generations, n_individuals=n_individuals, \
+            survivors=survivors, mutation_factor=mutation_factor)
+#    Evo = run_evolution.Evolution(sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.7, mutation_factor=0.50)
+    #def __init__(self, sim, params, fitness, n_generations=10, n_individuals=10, survivors=0.6, rnd_seed=0):
 
-parameter_ranges = { 'a' : (-10, 10.), \
-                     'b' : (-10, 10.), \
-                     'c' : (-10, 10.), \
-                     'd' : (-10, 10.), \
-                     'e' : (-10, 10.), \
-                     'f' : (-10, 10.), \
-                     }
-"""
-parameter_ranges should contain all parameters that are to tune.
-Parameters that should not be modified by the algorithm must not be contained here, but in the parameter class.
-"""
-Evo.set_parameter_ranges(parameter_ranges)
-Evo.run_evolution()
+    parameter_ranges = { 'a' : (-10, 10.), \
+                         'b' : (-10, 10.), \
+                         'c' : (-10, 10.), \
+                         'd' : (-10, 10.), \
+                         'e' : (-10, 10.), \
+                         'f' : (-10, 10.), \
+                         }
+    """
+    parameter_ranges should contain all parameters that are to tune.
+    Parameters that should not be modified by the algorithm must not be contained here, but in the parameter class.
+    """
+    Evo.set_parameter_ranges(parameter_ranges)
+    Evo.run_evolution()
+
+

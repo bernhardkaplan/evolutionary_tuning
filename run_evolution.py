@@ -32,7 +32,7 @@ class Evolution(object):
         np.random.seed(self.rnd_seed)
         random.seed(self.rnd_seed + 1234)
         self.mutation_factor = mutation_factor 
-        assert (self.mutation_factor > .0 and self.mutation_factor < 1.0), 'ERROR: mutation_factor out of range: %f (must be > 0 and < 1.)' % (self.mutation_factor)
+#        assert (self.mutation_factor > .0 and self.mutation_factor < 1.0), 'ERROR: mutation_factor out of range: %f (must be > 0 and < 1.)' % (self.mutation_factor)
         self.param_ranges_set = False # before starting the Evolutionary algorithm, set_parameter_ranges must be called
         self.check_mandatory_params()
 
@@ -129,6 +129,7 @@ class Evolution(object):
 #            output_fn = self.params['fitness_for_generation_fn_base'] + '%d.dat' % (gen_cnt)
 #            np.savetxt(output_fn, fitness_values[gen_cnt, :])
 
+#            print '\nDEBUG'
 #            print 'To be reinitiated:', to_be_reinitiated, fitness_values[gen_cnt, to_be_reinitiated]
 #            print 'Survivors:', survivor_idx, fitness_values[gen_cnt, survivor_idx]
 
@@ -141,14 +142,16 @@ class Evolution(object):
                     parent_1 = random.choice(survivor_idx)
 #                    print 'while', parent_0, parent_1, random.choice(survivor_idx)
 #                print 'New individual %d gets parents:' % new_ind_, parent_0, parent_1
-#                print 'parents params ', parent_0, self.params_for_individuals[parent_0]
+#                print 'parents params 0', parent_0, self.params_for_individuals[parent_0]
 #                print 'parents params 1', parent_1, self.params_for_individuals[parent_1]
-                new_params = self.combine_parents_params(parent_0, parent_1, method='random')
+#                new_params = self.combine_parents_params(parent_0, parent_1, method='random')
+                new_params = self.combine_parents_params(parent_0, parent_1, method='mean')
                 self.params_for_individuals[new_ind_] = new_params
 #                print 'After combination:', self.params_for_individuals[new_ind_]
 
             # Mutate those that survived
-            for survivor in sorted_idx[self.n_survivors:]:
+#            for survivor in sorted_idx[self.n_survivors:]:
+            for survivor in survivor_idx:
                 self.mutate(survivor)
 #                print 'survivor, params', survivor, self.params_for_individuals[survivor]
 

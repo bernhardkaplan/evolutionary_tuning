@@ -2,9 +2,12 @@ import os
 
 class Parameters(object):
 
-    def __init__(self):
-        self.params = {}
-        self.params['folder_names'] = []
+    def __init__(self, params=None):
+        if params != None:
+            self.params = params
+        else:
+            self.params = {}
+            self.params['folder_names'] = []
 
     def get(self):
         """Returns the stored parameters"""
